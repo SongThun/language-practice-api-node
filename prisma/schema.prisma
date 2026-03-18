@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Word {
+  id              String   @id @default(uuid()) @db.Uuid
+  word            String
+  definition      String
+  language        String
+  contextSentence String?  @map("context_sentence")
+  userId          String   @map("user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  wordTags        WordTag[]
+  practiceResults PracticeResult[]
+  wordStats       WordStats?
+
+  @@map("words")
+}
+
+model Tag {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  wordTags WordTag[]
+
+  @@unique([name, userId])
+  @@map("tags")
+}
+
+model WordTag {
+  wordId String @map("word_id") @db.Uuid
+  tagId  String @map("tag_id") @db.Uuid
+
+  word Word @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([wordId, tagId])
+  @@map("word_tags")
+}
+
+model PracticeSession {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  status       String    @default("active")
+  language     String?
+  wordCount    Int       @default(5) @map("word_count")
+  userWriting  String?   @map("user_writing")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  completedAt  DateTime? @map("completed_at")
+
+  practiceResults PracticeResult[]
+
+  @@map("practice_sessions")
+}
+
+model PracticeResult {
+  id        String   @id @default(uuid()) @db.Uuid
+  sessionId String   @map("session_id") @db.Uuid
+  wordId    String   @map("word_id") @db.Uuid
+  isCorrect Boolean? @default(false) @map("is_correct")
+  feedback  String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  session PracticeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  word    Word            @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  @@map("practice_results")
+}
+
+model WordStats {
+  id            String    @id @default(uuid()) @db.Uuid
+  wordId        String    @unique @map("word_id") @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  box           Int       @default(1)
+  lastPracticed DateTime? @map("last_practiced")
+  successCount  Int       @default(0) @map("success_count")
+  failCount     Int       @default(0) @map("fail_count")
+
+  word Word @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  @@map("word_stats")
+}
