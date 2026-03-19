@@ -4,21 +4,12 @@ import { updateWordStats } from './wordSelection';
 import { LLMEvaluationResult } from '../types';
 import { NotFoundError, ConflictError } from '../errors';
 
-/**
- * Orchestrates the writing evaluation flow:
- * 1. Fetch session and its words
- * 2. Call LLM for evaluation
- * 3. Store results in practice_results
- * 4. Update word_stats (Leitner boxes)
- * 5. Mark session as completed
- */
 export async function evaluateSessionWriting(
   prisma: PrismaClient,
   sessionId: string,
   userId: string,
   writing: string,
 ): Promise<LLMEvaluationResult & { session_id: string }> {
-  // Fetch session with its practice results (which have the word references)
   const session = await prisma.practiceSession.findFirst({
     where: { id: sessionId, userId },
     include: {
@@ -45,10 +36,8 @@ export async function evaluateSessionWriting(
     language: pr.word.language,
   }));
 
-  // Call LLM for evaluation
   const evaluation = await evaluateWriting(writing, words);
 
-  // Update practice results and word stats in parallel
   const updatePromises: Promise<unknown>[] = [];
 
   for (const usage of evaluation.vocabulary_usage) {
@@ -62,7 +51,6 @@ export async function evaluateSessionWriting(
     );
     if (!practiceResult) continue;
 
-    // Update the practice result
     updatePromises.push(
       prisma.practiceResult.update({
         where: { id: practiceResult.id },
@@ -73,7 +61,6 @@ export async function evaluateSessionWriting(
       }),
     );
 
-    // Update Leitner box
     updatePromises.push(
       updateWordStats(prisma, wordEntry.id, userId, usage.used_correctly),
     );
@@ -81,7 +68,6 @@ export async function evaluateSessionWriting(
 
   await Promise.all(updatePromises);
 
-  // Mark session as completed
   await prisma.practiceSession.update({
     where: { id: sessionId },
     data: { status: 'completed' },

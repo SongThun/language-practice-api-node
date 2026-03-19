@@ -8,6 +8,7 @@ export interface AppConfig {
   supabaseServiceRoleKey: string;
   databaseUrl: string;
   anthropicApiKey: string;
+  corsOrigins: string[];
 }
 
 let _config: AppConfig | null = null;
@@ -23,6 +24,9 @@ export function loadConfig(): AppConfig {
   assert(supabaseKey, 'SUPABASE_KEY is required');
   assert(databaseUrl, 'DATABASE_URL is required');
 
+  const corsOriginsRaw = process.env.CORS_ORIGINS ?? 'http://localhost:3000';
+  const corsOrigins = corsOriginsRaw.split(',').map((o) => o.trim()).filter(Boolean);
+
   _config = {
     port: parseInt(process.env.PORT ?? '3001', 10),
     host: process.env.HOST ?? '0.0.0.0',
@@ -31,6 +35,7 @@ export function loadConfig(): AppConfig {
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
     databaseUrl,
     anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? '',
+    corsOrigins,
   };
 
   return _config;

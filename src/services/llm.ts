@@ -11,11 +11,18 @@ function getClient(): Anthropic {
   return client;
 }
 
-/**
- * Extract and parse a JSON object from an LLM response string.
- * Handles responses wrapped in markdown code blocks.
- * Returns null if no valid JSON object is found.
- */
+function buildVocabularyXml(
+  words: { word: string; definition: string; language?: string }[],
+): string {
+  const entries = words
+    .map((w) => {
+      const langAttr = w.language ? ` language="${w.language}"` : '';
+      return `<word${langAttr}><term>${w.word}</term><definition>${w.definition}</definition></word>`;
+    })
+    .join('\n');
+  return `<vocabulary>\n${entries}\n</vocabulary>`;
+}
+
 export function parseJsonFromResponse<T = unknown>(text: string): T | null {
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
@@ -29,9 +36,7 @@ export async function generateExampleSentences(
 ): Promise<Map<string, string>> {
   const anthropic = getClient();
 
-  const wordList = words
-    .map((w) => `- "${w.word}" (${w.language}): ${w.definition}`)
-    .join('\n');
+  const vocabularyXml = buildVocabularyXml(words);
 
   const message = await anthropic.messages.create({
     model: 'claude-sonnet-4-20250514',
@@ -43,8 +48,7 @@ export async function generateExampleSentences(
 The sentence should demonstrate proper usage and be helpful for a language learner.
 Return ONLY a JSON object where keys are the words and values are the example sentences.
 
-Words:
-${wordList}`,
+${vocabularyXml}`,
       },
     ],
   });
@@ -74,9 +78,7 @@ export async function evaluateWriting(
 }> {
   const anthropic = getClient();
 
-  const wordList = targetWords
-    .map((w) => `- "${w.word}": ${w.definition}`)
-    .join('\n');
+  const vocabularyXml = buildVocabularyXml(targetWords);
 
   const message = await anthropic.messages.create({
     model: 'claude-sonnet-4-20250514',
@@ -87,10 +89,12 @@ export async function evaluateWriting(
         content: `You are a language tutor evaluating a student's writing practice.
 
 The student was asked to write using these vocabulary words:
-${wordList}
+${vocabularyXml}
 
 The student wrote:
-"${writing}"
+<user_writing>
+${writing}
+</user_writing>
 
 Evaluate the writing and return a JSON object with this exact structure:
 {
@@ -137,7 +141,6 @@ Return ONLY the JSON object, no other text.`,
   }
 }
 
-/** Reset the client (for testing). */
 export function _resetClient(): void {
   client = null;
 }

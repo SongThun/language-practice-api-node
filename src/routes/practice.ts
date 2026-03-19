@@ -8,12 +8,12 @@ import { CreateSessionBody, SubmitWritingBody } from '../types';
 import { selectWords } from '../services/wordSelection';
 import { generateExampleSentences } from '../services/llm';
 import { evaluateSessionWriting } from '../services/evaluation';
+import { validateOwnership } from '../services/ownership';
 import { NotFoundError, ConflictError } from '../errors';
 
 export default async function practiceRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.addHook('onRequest', fastify.authenticate);
 
-  // Create a practice session
   fastify.post('/', { schema: createSessionSchema }, async (
     request: FastifyRequest<{ Body: CreateSessionBody }>,
     reply,
@@ -24,10 +24,12 @@ export default async function practiceRoutes(fastify: FastifyInstance): Promise<
     let selectedWordIds: string[];
 
     if (word_ids?.length) {
-      // User manually picked words
+      const owned = await validateOwnership(fastify.prisma, 'word', word_ids, userId);
+      if (!owned) {
+        return reply.code(403).send({ error: 'One or more words do not belong to you' });
+      }
       selectedWordIds = word_ids;
     } else {
-      // Use Leitner algorithm to select words
       const selected = await selectWords(fastify.prisma, userId, count, {
         language,
         tag,
@@ -42,7 +44,6 @@ export default async function practiceRoutes(fastify: FastifyInstance): Promise<
       selectedWordIds = selected.map((w) => w.id);
     }
 
-    // Create the session
     const session = await fastify.prisma.practiceSession.create({
       data: {
         userId,
@@ -62,7 +63,6 @@ export default async function practiceRoutes(fastify: FastifyInstance): Promise<
       },
     });
 
-    // Generate example sentences
     const words = session.practiceResults.map((pr) => ({
       word: pr.word.word,
       definition: pr.word.definition,
@@ -93,7 +93,6 @@ export default async function practiceRoutes(fastify: FastifyInstance): Promise<
     });
   });
 
-  // Get a practice session
   fastify.get('/:id', { schema: getSessionSchema }, async (
     request: FastifyRequest<{ Params: { id: string } }>,
     reply,
@@ -132,7 +131,6 @@ export default async function practiceRoutes(fastify: FastifyInstance): Promise<
     };
   });
 
-  // Submit writing for evaluation
   fastify.post('/:id/evaluate', { schema: submitWritingSchema }, async (
     request: FastifyRequest<{ Params: { id: string }; Body: SubmitWritingBody }>,
     reply,
@@ -152,8 +150,8 @@ export default async function practiceRoutes(fastify: FastifyInstance): Promise<
       if (err instanceof ConflictError) {
         return reply.code(409).send({ error: err.message });
       }
-      const message = err instanceof Error ? err.message : 'Evaluation failed';
-      return reply.code(500).send({ error: message });
+      fastify.log.error(err, 'Evaluation failed');
+      return reply.code(500).send({ error: 'Evaluation failed' });
     }
   });
 }

@@ -11,6 +11,7 @@ import {
   UpdateWordBody,
   WordFilters,
 } from '../types';
+import { validateOwnership } from '../services/ownership';
 
 function formatWord(word: {
   id: string;
@@ -37,10 +38,8 @@ function formatWord(word: {
 }
 
 export default async function wordRoutes(fastify: FastifyInstance): Promise<void> {
-  // All word routes require auth
   fastify.addHook('onRequest', fastify.authenticate);
 
-  // List words
   fastify.get('/', { schema: listWordsSchema }, async (
     request: FastifyRequest<{ Querystring: WordFilters }>,
   ) => {
@@ -92,7 +91,6 @@ export default async function wordRoutes(fastify: FastifyInstance): Promise<void
     };
   });
 
-  // Get word by ID
   fastify.get('/:id', { schema: getWordSchema }, async (
     request: FastifyRequest<{ Params: { id: string } }>,
     reply,
@@ -113,13 +111,19 @@ export default async function wordRoutes(fastify: FastifyInstance): Promise<void
     return formatWord(word);
   });
 
-  // Create word
   fastify.post('/', { schema: createWordSchema }, async (
     request: FastifyRequest<{ Body: CreateWordBody }>,
     reply,
   ) => {
     const { word, definition, language, context_sentence, tag_ids } = request.body;
     const userId = request.userId;
+
+    if (tag_ids?.length) {
+      const owned = await validateOwnership(fastify.prisma, 'tag', tag_ids, userId);
+      if (!owned) {
+        return reply.code(403).send({ error: 'One or more tags do not belong to you' });
+      }
+    }
 
     const created = await fastify.prisma.word.create({
       data: {
@@ -141,7 +145,6 @@ export default async function wordRoutes(fastify: FastifyInstance): Promise<void
       },
     });
 
-    // Create initial word stats (box 1)
     await fastify.prisma.wordStats.create({
       data: {
         wordId: created.id,
@@ -153,7 +156,6 @@ export default async function wordRoutes(fastify: FastifyInstance): Promise<void
     return reply.code(201).send(formatWord(created));
   });
 
-  // Update word
   fastify.put('/:id', { schema: updateWordSchema }, async (
     request: FastifyRequest<{ Params: { id: string }; Body: UpdateWordBody }>,
     reply,
@@ -168,7 +170,13 @@ export default async function wordRoutes(fastify: FastifyInstance): Promise<void
 
     const { word, definition, language, context_sentence, tag_ids } = request.body;
 
-    // If tag_ids provided, replace all tags
+    if (tag_ids?.length) {
+      const owned = await validateOwnership(fastify.prisma, 'tag', tag_ids, request.userId);
+      if (!owned) {
+        return reply.code(403).send({ error: 'One or more tags do not belong to you' });
+      }
+    }
+
     if (tag_ids !== undefined) {
       await fastify.prisma.wordTag.deleteMany({
         where: { wordId: request.params.id },
@@ -198,7 +206,6 @@ export default async function wordRoutes(fastify: FastifyInstance): Promise<void
     return formatWord(updated);
   });
 
-  // Delete word
   fastify.delete('/:id', { schema: deleteWordSchema }, async (
     request: FastifyRequest<{ Params: { id: string } }>,
     reply,

@@ -37,6 +37,7 @@ export const createSessionSchema = {
   response: {
     201: practiceSessionResponseSchema,
     400: errorResponseSchema,
+    403: errorResponseSchema,
   },
 } as const;
 
@@ -46,7 +47,7 @@ export const submitWritingSchema = {
     type: 'object',
     required: ['writing'],
     properties: {
-      writing: { type: 'string', minLength: 1 },
+      writing: { type: 'string', minLength: 1, maxLength: 5000 },
     },
     additionalProperties: false,
   },

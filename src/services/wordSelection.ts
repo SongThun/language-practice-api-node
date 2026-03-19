@@ -59,12 +59,10 @@ export async function selectWords(
   const now = Date.now();
   const ONE_DAY_MS = 86400000;
 
-  // Calculate weights using the Leitner formula
   const weighted = words.map((w) => {
     const box = w.wordStats?.box ?? 1;
     const lastPracticed = w.wordStats?.lastPracticed;
 
-    // Time factor: days since last practiced (minimum 1 day for never-practiced)
     const timeFactor = lastPracticed
       ? Math.max((now - lastPracticed.getTime()) / ONE_DAY_MS, 0.1)
       : 7; // Never practiced = treat as 7 days ago
@@ -74,7 +72,6 @@ export async function selectWords(
     return { word: w, weight };
   });
 
-  // Weighted random selection without replacement
   const selected: WordWithStats[] = [];
   const remaining = [...weighted];
 
@@ -100,11 +97,6 @@ export async function selectWords(
   return selected;
 }
 
-/**
- * Update word stats after evaluation.
- * Correct: move to next box (max 5).
- * Incorrect: back to box 1.
- */
 export async function updateWordStats(
   prisma: PrismaClient,
   wordId: string,

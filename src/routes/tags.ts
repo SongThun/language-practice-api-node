@@ -24,7 +24,6 @@ function formatTag(tag: {
 export default async function tagRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.addHook('onRequest', fastify.authenticate);
 
-  // List tags
   fastify.get('/', { schema: listTagsSchema }, async (request: FastifyRequest) => {
     const tags = await fastify.prisma.tag.findMany({
       where: { userId: request.userId },
@@ -34,7 +33,6 @@ export default async function tagRoutes(fastify: FastifyInstance): Promise<void>
     return tags.map(formatTag);
   });
 
-  // Create tag
   fastify.post('/', { schema: createTagSchema }, async (
     request: FastifyRequest<{ Body: CreateTagBody }>,
     reply,
@@ -42,7 +40,6 @@ export default async function tagRoutes(fastify: FastifyInstance): Promise<void>
     const { name } = request.body;
     const userId = request.userId;
 
-    // Check for duplicate
     const existing = await fastify.prisma.tag.findUnique({
       where: { name_userId: { name, userId } },
     });
@@ -58,7 +55,6 @@ export default async function tagRoutes(fastify: FastifyInstance): Promise<void>
     return reply.code(201).send(formatTag(tag));
   });
 
-  // Update tag
   fastify.put('/:id', { schema: updateTagSchema }, async (
     request: FastifyRequest<{ Params: { id: string }; Body: UpdateTagBody }>,
     reply,
@@ -79,7 +75,6 @@ export default async function tagRoutes(fastify: FastifyInstance): Promise<void>
     return formatTag(tag);
   });
 
-  // Delete tag
   fastify.delete('/:id', { schema: deleteTagSchema }, async (
     request: FastifyRequest<{ Params: { id: string } }>,
     reply,

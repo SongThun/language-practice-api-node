@@ -29,16 +29,17 @@ export const createWordSchema = {
     type: 'object',
     required: ['word', 'definition', 'language'],
     properties: {
-      word: { type: 'string', minLength: 1 },
-      definition: { type: 'string', minLength: 1 },
-      language: { type: 'string', minLength: 1 },
-      context_sentence: { type: 'string' },
+      word: { type: 'string', minLength: 1, maxLength: 100 },
+      definition: { type: 'string', minLength: 1, maxLength: 1000 },
+      language: { type: 'string', minLength: 1, maxLength: 50 },
+      context_sentence: { type: 'string', maxLength: 500 },
       tag_ids: { type: 'array', items: { type: 'string', format: 'uuid' } },
     },
     additionalProperties: false,
   },
   response: {
     201: wordResponseSchema,
+    403: errorResponseSchema,
   },
 } as const;
 
@@ -47,16 +48,17 @@ export const updateWordSchema = {
   body: {
     type: 'object',
     properties: {
-      word: { type: 'string', minLength: 1 },
-      definition: { type: 'string', minLength: 1 },
-      language: { type: 'string', minLength: 1 },
-      context_sentence: { type: 'string' },
+      word: { type: 'string', minLength: 1, maxLength: 100 },
+      definition: { type: 'string', minLength: 1, maxLength: 1000 },
+      language: { type: 'string', minLength: 1, maxLength: 50 },
+      context_sentence: { type: 'string', maxLength: 500 },
       tag_ids: { type: 'array', items: { type: 'string', format: 'uuid' } },
     },
     additionalProperties: false,
   },
   response: {
     200: wordResponseSchema,
+    403: errorResponseSchema,
     404: errorResponseSchema,
   },
 } as const;
